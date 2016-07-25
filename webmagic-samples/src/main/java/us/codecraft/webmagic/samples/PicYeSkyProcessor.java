@@ -3,20 +3,30 @@ package us.codecraft.webmagic.samples;
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
+import us.codecraft.webmagic.pipeline.FilePipeline;
 import us.codecraft.webmagic.processor.PageProcessor;
+import us.codecraft.webmagic.samples.pipeline.OneFilePipeline;
+import us.codecraft.webmagic.samples.pipeline.UrlPreOneFilePipeline;
+import us.codecraft.webmagic.selector.Selectable;
+
+import javax.xml.soap.Node;
+import java.io.FileNotFoundException;
+import java.io.UnsupportedEncodingException;
+import java.util.List;
 
 /**
  * @author code4crafter@gmail.com <br>
  */
 public class PicYeSkyProcessor implements PageProcessor {
+    //http://pic.yesky.com/c/6_20771.shtml
+    public static final String URL_LIST = "http://pic\\.yesky\\.com/c/[\\d_]+\\.shtml";
+    //http://pic.yesky.com/290/40162290.shtml
+    public static final String URL_PIC = "http://pic\\.yesky\\.com/\\d+/[\\d_]+\\.shtml";
 
-    public static final String URL_LIST = "http://blog\\.sina\\.com\\.cn/s/articlelist_1487828712_0_\\d+\\.html";
-
-    public static final String URL_POST = "http://blog\\.sina\\.com\\.cn/s/blog_\\w+\\.html";
-
+    public static final String URI_LIST="/c/[\\d_]+\\.shtml";
     private Site site = Site
             .me()
-            .setDomain("blog.sina.com.cn")
+            .setDomain("pic.yesky.com")
             .setSleepTime(3000)
             .setUserAgent(
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_2) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31");
@@ -25,14 +35,30 @@ public class PicYeSkyProcessor implements PageProcessor {
     public void process(Page page) {
         //列表页
         if (page.getUrl().regex(URL_LIST).match()) {
-            page.addTargetRequests(page.getHtml().xpath("//div[@class=\"articleList\"]").links().regex(URL_POST).all());
-            page.addTargetRequests(page.getHtml().links().regex(URL_LIST).all());
-            //文章页
+            List<Selectable> imageBoxes = page.getHtml().xpath("//div[@class=\"mode_box\"]/dl").nodes();
+            int i = 0;
+//            page.putField("pageUrl",page.getUrl().get());
+            for (Selectable box : imageBoxes) {
+                i++;
+                String firstPicUrl = box.xpath("//dt/a/@href").regex(URL_PIC).get();
+//                page.putField("url" + i, firstPicUrl);
+//                page.putField("titlePicSrc" + i, box.xpath("//dt/a/img/@src"));
+//                page.putField("title" + i, box.xpath("//dd/a/@title"));
+//                page.putField("number" + i, box.xpath("//dd/span/text()").regex("\\((.*)\\)"));
+                page.addTargetRequest(firstPicUrl);
+            }
+//            List<String> pages = page.getHtml().xpath("//div[@class=\"flym\"]").links().regex(URI_LIST).all();
+//            page.addTargetRequests(pages);
+            //图集页
         } else {
-            page.putField("title", page.getHtml().xpath("//div[@class='articalTitle']/h2"));
-            page.putField("content", page.getHtml().xpath("//div[@id='articlebody']//div[@class='articalContent']"));
-            page.putField("date",
-                    page.getHtml().xpath("//div[@id='articlebody']//span[@class='time SG_txtc']").regex("\\((.*)\\)"));
+            Selectable imageBlock = page.getHtml().xpath("//div[@id=\"l_effect_img\"]//div[@class=\"l_effect_img_mid\"]");
+            String nextPicUrl = imageBlock.links().regex(URL_PIC).get();
+            page.putField("url", page.getUrl().get());
+            String picSrc = imageBlock.xpath("//a/img/@src").get();
+            page.putField("picSrc", picSrc);
+            String title = imageBlock.xpath("//a/img/@alt").get();
+//            page.putField("picDes", title);
+            page.addTargetRequest(nextPicUrl);
         }
     }
 
@@ -41,8 +67,8 @@ public class PicYeSkyProcessor implements PageProcessor {
         return site;
     }
 
-    public static void main(String[] args) {
-        Spider.create(new PicYeSkyProcessor()).addUrl("http://blog.sina.com.cn/s/articlelist_1487828712_0_1.html")
-                .run();
+    public static void main(String[] args) throws FileNotFoundException, UnsupportedEncodingException {
+        Spider.create(new PicYeSkyProcessor()).addUrl("http://pic.yesky.com/c/6_61113.shtml").addPipeline(new UrlPreOneFilePipeline("/Users/junwei/temp/webmagic"))
+                .thread(50).run();
     }
 }

@@ -4,16 +4,12 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import us.codecraft.webmagic.ResultItems;
 import us.codecraft.webmagic.Task;
 import us.codecraft.webmagic.pipeline.Pipeline;
 import us.codecraft.webmagic.utils.FilePersistentBase;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.*;
 import java.util.Map;
 
 /**
@@ -40,24 +36,42 @@ public class UrlPreOneFilePipeline extends FilePersistentBase implements Pipelin
 
     @Override
     public void process(ResultItems resultItems, Task task) {
-        String path = this.path + PATH_SEPERATOR + task.getUUID() + PATH_SEPERATOR;
+        String url = resultItems.get("pageUrl");
+        if(url==null) {
+            url=resultItems.get("url");
+            int index = url.lastIndexOf("_");
+            url = index == -1 ? url : url.substring(0, index).concat(".shtml");
+        }
+        url = url.replaceAll("\\W", "_");
+        String path = this.path + PATH_SEPERATOR + task.getUUID()+"_life" + PATH_SEPERATOR + url + ".txt";
         try {
-            PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(new FileOutputStream(getFile(path + DigestUtils.md5Hex(resultItems.getRequest().getUrl()) + ".html")),"UTF-8"));
-            printWriter.println("url:\t" + resultItems.getRequest().getUrl());
+            PrintWriter printWriter = new PrintWriter(new FileWriter(getFile(path),true));
             for (Map.Entry<String, Object> entry : resultItems.getAll().entrySet()) {
+                String key = entry.getKey();
+                if(key.equals("url")){
+                    continue;
+                }
                 if (entry.getValue() instanceof Iterable) {
                     Iterable value = (Iterable) entry.getValue();
-                    printWriter.println(entry.getKey() + ":");
+//                    printWriter.println(entry.getKey() + ":");
                     for (Object o : value) {
                         printWriter.println(o);
                     }
                 } else {
-                    printWriter.println(entry.getKey() + ":\t" + entry.getValue());
+//                    printWriter.println(entry.getKey() + ":\t" + entry.getValue());
+                    printWriter.println(entry.getValue());
                 }
             }
+            printWriter.flush();
             printWriter.close();
         } catch (IOException e) {
             logger.warn("write file error", e);
         }
+    }
+
+    public static void main(String[] args) {
+        String url="http://pic.yesky.com/c/6_61113.shtml";
+        url=url.replaceAll("\\W","_");
+        System.out.println(url);
     }
 }
